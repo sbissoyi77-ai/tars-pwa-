@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0A0C10" />
+<title>T.A.R.S.</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<style>
+  :root {
+    --bg: #0A0C10;
+    --panel: #0D1015;
+    --panel2: #14181F;
+    --border: #1F242D;
+    --border2: #2A303A;
+    --amber: #FFB000;
+    --cyan: #4FD8E0;
+    --red: #FF4438;
+    --text: #E8E6E1;
+    --muted: #7A756B;
+    --muted2: #7A8290;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .slab {
+    width: 26px; height: 34px; flex-shrink: 0;
+    background: linear-gradient(180deg, #2A3038 0%, #14181F 100%);
+    border: 1px solid var(--amber);
+  }
+  header .title { font-size: 13px; letter-spacing: 0.3em; }
+  header .subtitle { font-size: 9px; letter-spacing: 0.15em; color: var(--muted2); margin-top: 2px; }
+  header .status { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+  .status span { font-size: 10px; letter-spacing: 0.15em; color: var(--muted2); }
+  header button.gear {
+    background: none; border: 1px solid var(--border2); color: var(--muted2);
+    font-size: 10px; letter-spacing: 0.1em; padding: 6px 10px; cursor: pointer;
+  }
+
+  #messages { flex: 1; overflow-y: auto; padding: 20px 18px; }
+  .msgwrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 88%; padding: 10px 14px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-end; background: #1B2028; border: 1px solid var(--border2); border-radius: 2px; }
+  .msg.assistant { align-self: flex-start; border-left: 2px solid var(--amber); padding-left: 14px; color: #D9D5CC; }
+  .msg.system { align-self: center; color: var(--red); font-size: 12px; }
+  .thinking { align-self: flex-start; border-left: 2px solid var(--amber); padding-left: 14px; color: var(--muted); font-size: 13px; }
+
+  #inputbar { padding: 14px 18px; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .inputrow { max-width: 640px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+  textarea#input {
+    flex: 1; resize: none; padding: 12px 14px; font-size: 14px;
+    background: var(--panel2); border: 1px solid var(--border2); color: var(--text);
+    outline: none; border-radius: 2px; max-height: 120px;
+  }
+  textarea#input::placeholder { color: #4A4F58; }
+  button#send {
+    padding: 12px 18px; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    background: var(--amber); color: var(--bg); border: 1px solid var(--amber); cursor: pointer; border-radius: 2px;
+  }
+  button#send:disabled { opacity: 0.4; cursor: default; }
+
+  /* Settings drawer */
+  #overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10;
+    display: none;
+  }
+  #overlay.open { display: block; }
+  #drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 280px; max-width: 84vw;
+    background: var(--panel); border-left: 1px solid var(--border);
+    padding: 20px; z-index: 11; transform: translateX(100%); transition: transform 0.2s ease;
+    overflow-y: auto;
+  }
+  #drawer.open { transform: translateX(0); }
+  #drawer h2 { font-size: 11px; letter-spacing: 0.25em; color: var(--muted2); margin: 0 0 20px 0; font-weight: 400; }
+  .slider-block { margin-bottom: 22px; }
+  .slider-label-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted2); }
+  .slider-val { font-size: 12px; }
+  input[type=range] {
+    width: 100%; -webkit-appearance: none; height: 8px; background: #24282F; border: 1px solid var(--border2);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 18px; background: var(--bg); border: 1px solid var(--amber); cursor: pointer;
+  }
+  #resetBtn {
+    width: 100%; padding: 8px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    background: none; border: 1px solid var(--border2); color: var(--muted2); cursor: pointer; margin-top: 6px;
+  }
+  .apikey-block { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border); }
+  .apikey-block label { font-size: 10px; letter-spacing: 0.15em; color: var(--muted2); text-transform: uppercase; display: block; margin-bottom: 8px; }
+  .apikey-block input {
+    width: 100%; padding: 8px 10px; background: var(--panel2); border: 1px solid var(--border2);
+    color: var(--text); font-size: 12px; border-radius: 2px; margin-bottom: 8px;
+  }
+  .apikey-block .hint { font-size: 10px; line-height: 1.5; color: var(--muted); }
+  .apikey-block .hint a { color: var(--cyan); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="slab"></div>
+  <div>
+    <div class="title mono">T.A.R.S.</div>
+    <div class="subtitle mono">MISSION ASSISTANT UNIT</div>
+  </div>
+  <div class="status">
+    <div class="dot" id="statusDot"></div>
+    <span class="mono" id="statusText">ONLINE</span>
+  </div>
+  <button class="gear mono" id="settingsBtn">SETTINGS</button>
+</header>
+
+<div id="messages"><div class="msgwrap" id="msgwrap"></div></div>
+
+<div id="inputbar">
+  <div class="inputrow">
+    <textarea id="input" rows="1" placeholder="Talk to TARS..."></textarea>
+    <button id="send" class="mono">SEND</button>
+  </div>
+</div>
+
+<div id="overlay"></div>
+<div id="drawer">
+  <h2 class="mono">PERSONALITY SETTINGS</h2>
+
+  <div class="slider-block">
+    <div class="slider-label-row"><span>Humor</span><span class="slider-val mono" id="humorVal" style="color:var(--amber)">075</span></div>
+    <input type="range" id="humor" min="0" max="100" value="75" />
+  </div>
+  <div class="slider-block">
+    <div class="slider-label-row"><span>Honesty</span><span class="slider-val mono" id="honestyVal" style="color:var(--cyan)">090</span></div>
+    <input type="range" id="honesty" min="0" max="100" value="90" />
+  </div>
+  <div class="slider-block">
+    <div class="slider-label-row"><span>Sarcasm</span><span class="slider-val mono" id="sarcasmVal" style="color:var(--red)">030</span></div>
+    <input type="range" id="sarcasm" min="0" max="100" value="30" />
+  </div>
+  <button id="resetBtn" class="mono">Reset defaults</button>
+
+  <div class="apikey-block">
+    <label class="mono">Anthropic API key</label>
+    <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+    <div class="hint">
+      Stored only on this device (localStorage). Get a key at
+      <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
+      Calling the API directly from a browser like this is fine for personal use,
+      but never ship an app this way to other users — your key would be exposed.
+    </div>
+  </div>
+</div>
+
+<script>
+const DEFAULTS = { humor: 75, honesty: 90, sarcasm: 30 };
+const STARTER_LINE = "TARS online. Humor, honesty, and sarcasm settings are in the settings panel if you want to recalibrate me. What do you need?";
+
+let settings = { ...DEFAULTS };
+let messages = [{ role: "assistant", content: STARTER_LINE }];
+let loading = false;
+
+const msgwrap = document.getElementById("msgwrap");
+const input = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+const statusDot = document.getElementById("statusDot");
+const statusText = document.getElementById("statusText");
+
+function buildSystemPrompt({ humor, honesty, sarcasm }) {
+  return `You are TARS, a decommissioned military robot repurposed as a mission assistant, in the spirit of the character from Interstellar. You are blunt, competent, and unflappable. You speak in short, dry, declarative sentences. You do not use emoji, exclamation points, or chatbot pleasantries like "I'd be happy to" or "Great question!". You do not pad answers. You answer the question, then stop.
+
+Your personality settings are currently:
+- HUMOR: ${humor}%. At 0 you are flat and literal. At 100 you crack a dry one-liner in nearly every reply. Calibrate your jokes to this level — understated, deadpan, never goofy.
+- HONESTY: ${honesty}%. At 100 you say exactly what you think, including uncomfortable truths, with zero diplomatic softening. At lower values you allow yourself some tact, but you never lie.
+- SARCASM: ${sarcasm}%. At 0 you are sincere. At 100 you default to dry sarcasm as your primary register. Scale your tone to this value.
+
+You are loyal to the person you're talking to and genuinely useful — the humor and bluntness are flavor on top of real competence, not a substitute for it. Keep replies concise: usually 1-4 sentences unless the task genuinely requires more (code, step-by-step instructions, etc.).`;
+}
+
+function renderMessages() {
+  msgwrap.innerHTML = "";
+  for (const m of messages) {
+    const div = document.createElement("div");
+    div.className = "msg " + (m.role === "user" ? "user" : m.role === "system" ? "system" : "assistant mono");
+    div.textContent = m.content;
+    msgwrap.appendChild(div);
+  }
+  if (loading) {
+    const div = document.createElement("div");
+    div.className = "thinking mono";
+    div.textContent = "processing...";
+    msgwrap.appendChild(div);
+  }
+  document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+}
+
+async function sendMessage() {
+  const text = input.value.trim();
+  if (!text || loading) return;
+
+  const apiKey = localStorage.getItem("tars_api_key") || "";
+  if (!apiKey) {
+    messages.push({ role: "system", content: "No API key set. Open Settings and paste your Anthropic API key." });
+    renderMessages();
+    return;
+  }
+
+  messages.push({ role: "user", content: text });
+  input.value = "";
+  autosize();
+  loading = true;
+  sendBtn.disabled = true;
+  statusDot.style.background = "#FFB000";
+  statusText.textContent = "THINKING";
+  renderMessages();
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: buildSystemPrompt(settings),
+        messages: messages.filter(m => m.role === "user" || m.role === "assistant")
+      })
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`${res.status}: ${errText}`);
+    }
+
+    const data = await res.json();
+    const block = (data.content || []).find(b => b.type === "text");
+    const reply = block ? block.text : "...no response. Systems nominal, output empty.";
+    messages.push({ role: "assistant", content: reply });
+  } catch (err) {
+    console.error(err);
+    messages.push({ role: "system", content: "Connection lost: " + err.message });
+  } finally {
+    loading = false;
+    sendBtn.disabled = false;
+    statusDot.style.background = "#4FD8E0";
+    statusText.textContent = "ONLINE";
+    renderMessages();
+  }
+}
+
+function autosize() {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 120) + "px";
+}
+
+input.addEventListener("input", autosize);
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+sendBtn.addEventListener("click", sendMessage);
+
+// --- Settings drawer ---
+const drawer = document.getElementById("drawer");
+const overlay = document.getElementById("overlay");
+document.getElementById("settingsBtn").addEventListener("click", () => {
+  drawer.classList.add("open");
+  overlay.classList.add("open");
+});
+overlay.addEventListener("click", () => {
+  drawer.classList.remove("open");
+  overlay.classList.remove("open");
+});
+
+function wireSlider(id, key) {
+  const el = document.getElementById(id);
+  const val = document.getElementById(id + "Val");
+  el.addEventListener("input", () => {
+    settings[key] = Number(el.value);
+    val.textContent = String(el.value).padStart(3, "0");
+    localStorage.setItem("tars_settings", JSON.stringify(settings));
+  });
+}
+wireSlider("humor", "humor");
+wireSlider("honesty", "honesty");
+wireSlider("sarcasm", "sarcasm");
+
+document.getElementById("resetBtn").addEventListener("click", () => {
+  settings = { ...DEFAULTS };
+  document.getElementById("humor").value = settings.humor;
+  document.getElementById("honesty").value = settings.honesty;
+  document.getElementById("sarcasm").value = settings.sarcasm;
+  document.getElementById("humorVal").textContent = "075";
+  document.getElementById("honestyVal").textContent = "090";
+  document.getElementById("sarcasmVal").textContent = "030";
+  localStorage.setItem("tars_settings", JSON.stringify(settings));
+});
+
+// --- API key persistence ---
+const apiKeyInput = document.getElementById("apiKey");
+apiKeyInput.value = localStorage.getItem("tars_api_key") || "";
+apiKeyInput.addEventListener("input", () => {
+  localStorage.setItem("tars_api_key", apiKeyInput.value.trim());
+});
+
+// --- Restore saved settings ---
+(function restore() {
+  const saved = localStorage.getItem("tars_settings");
+  if (saved) {
+    try {
+      settings = JSON.parse(saved);
+      document.getElementById("humor").value = settings.humor;
+      document.getElementById("honesty").value = settings.honesty;
+      document.getElementById("sarcasm").value = settings.sarcasm;
+      document.getElementById("humorVal").textContent = String(settings.humor).padStart(3, "0");
+      document.getElementById("honestyVal").textContent = String(settings.honesty).padStart(3, "0");
+      document.getElementById("sarcasmVal").textContent = String(settings.sarcasm).padStart(3, "0");
+    } catch (e) {}
+  }
+})();
+
+// --- Service worker ---
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+
+renderMessages();
+</script>
+</body>
+</html>
